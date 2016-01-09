@@ -52,17 +52,46 @@ namespace TimeLogger
             logTimer.Elapsed += new ElapsedEventHandler(logTimer_Elapsed);
         }
 
+        //Set up the mechanics to update the status label from the timer thread
+        private void updateLabel(string text)
+        {
+            statusLabel.Text = text;
+        }
+        delegate void SetTextCallback(string text);
+        private void WriteToLabelSafely(string text)
+        {
+            //Check if this thread is different from the one that created the control
+            //(protip: it is)
+            if (statusLabel.InvokeRequired)
+            {   //Oh yes it is
+                SetTextCallback d = new SetTextCallback(updateLabel);
+                this.Invoke(d, new object[] { text });
+            }
+            else
+            {
+                updateLabel(text);
+            }
+        }
+
         void logTimer_Elapsed(object sender, ElapsedEventArgs e)
         {   //Called once a minute when the timer elapses
-            if (GetLastInputTime() < 60)
+            if (GetLastInputTime() < 60 && running)
             {   //If the user has done something within the last minute
 
                 //Increase the counter
                 minutesWorked += 1;
 
-                //When we have the background worker up and working update status label
-                //For now just print out
-                Console.WriteLine("User last did something " + GetLastInputTime().ToString() + " seconds ago. " + minutesWorked.ToString() + " minutes worked.");
+                //Update the UI to show how many minutes have been worked
+                if (minutesWorked == 1) //Grammar check
+                {
+                    WriteToLabelSafely("1 minute worked. Running...");
+                    notifyIcon.Text = "Running: 1 minute worked." + Environment.NewLine + "Click to restore.";
+                }
+                else
+                {
+                    WriteToLabelSafely(minutesWorked.ToString() + " minutes worked. Running...");
+                    notifyIcon.Text="Running: " + minutesWorked.ToString() + " minutes worked." + Environment.NewLine + "Click to restore.";
+                }
             }
         }
 
